@@ -29,7 +29,7 @@ func echoHandler(ws *websocket.Conn) {
 		Follow:true,
 		ReOpen:true})//用tail对文件进行追踪
 	for line:= range update.Lines{
-		if strings.Contains(line.Text,word){//如果一行中包含关键字，则将该行传回服务器
+		if strings.Contains(line.Text,word){//如果一行中包含关键字，则将该行传到客户端
 			ws.Write([]byte(line.Text))
 		}
 	}
