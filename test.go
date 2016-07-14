@@ -28,10 +28,11 @@ func monitor(ws *websocket.Conn,tail *tail.Tail){
 }
 
 func echoHandler(ws *websocket.Conn) {
+	fmt.Println("one in")
     msg := make([]byte, 512)
     n, err := ws.Read(msg)//将websocket收到的消息读到msg中
     if err != nil {
-        log.Fatal(err)
+        log.Println(err)
 		return 
     }
     fmt.Printf("Receive: %s,len=%d\n", msg[:n],n)//在命令行打印收到的消息和长度
@@ -62,7 +63,7 @@ func echoHandler(ws *websocket.Conn) {
 			}
 		}
 	}
-	fmt.Println("over");
+	fmt.Println("one out");
 	defer ws.Close()
 }
 
