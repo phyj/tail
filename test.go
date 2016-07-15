@@ -12,7 +12,7 @@ import (
 
 const (
 	gap = 2
-	greet = "hello"
+	greet = ""
 )
 
 func monitor(ws *websocket.Conn,tail *tail.Tail){
