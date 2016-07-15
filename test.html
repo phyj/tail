@@ -13,6 +13,9 @@
 				$('<li>').text(event.data).appendTo($ul);
 			}
         };
+		ws.onclose = function(e){
+			window.location.reload();
+		}
         var $ul = $('#msg-list');
         $('#sendBtn').click(function(){
           var data = $('#name').val();

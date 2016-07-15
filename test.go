@@ -12,18 +12,20 @@ import (
 
 const (
 	gap = 2
+	timeout = 10
 	greet = ""
 )
 
-func monitor(ws *websocket.Conn,tail *tail.Tail){
+func monitor(ws *websocket.Conn,tail *tail.Tail,ti *time.Time){
 	for{
-		time.Sleep(gap*time.Second)
+		time.Sleep(gap*time.Second)//每次sleep了gap秒之后，检查websocket是否断开，是否等待文件更新过久
 		_,err := ws.Write([]byte(greet))
-		if err!=nil{
+		if err!=nil || time.Now().Sub(*ti)>timeout*time.Second {
 			tail.Stop()
 			tail.Cleanup()
 			return
 		}
+		fmt.Println("watch now")
 	}
 }
 
@@ -52,8 +54,10 @@ func echoHandler(ws *websocket.Conn) {
 		log.Fatal(er)
 		return 
 	}
-	go monitor(ws,update)
+	ti := time.Now()//用来记录目标文件最近一次被修改的时间
+	go monitor(ws,update,&ti)
 	for line:= range update.Lines{
+		ti = time.Now()//文件有更新，更新ti
 		if strings.Contains(line.Text,word){//如果一行中包含关键字，则将该行传回服务器
 			_,errr := ws.Write([]byte(line.Text))
 			if errr!=nil {
