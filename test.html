@@ -9,7 +9,7 @@
       $(function() {
         var ws = new WebSocket("ws://localhost:8080/echo");
         ws.onmessage = function(e) {
-			if(event.data!="hello"){
+			if(event.data!=""){
 				$('<li>').text(event.data).appendTo($ul);
 			}
         };
