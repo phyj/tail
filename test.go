@@ -8,14 +8,74 @@ import (
 	"strings"
 	"github.com/hpcloud/tail"
 	"time"
+	"os"
+	"strconv"
 )
 
 const (
 	gap = 2
-	timeout = 10
+	timeout = 6000
 	greet = ""
 )
 
+type hub struct {
+	// Registered connections.
+	connections map[*websocket.Conn]bool
+
+	// Inbound messages from the connections.
+	broadcast chan string
+
+	// Register requests from the connections.
+	register chan *websocket.Conn
+
+	// Unregister requests from connections.
+	unregister chan *websocket.Conn
+}
+
+var (
+	set bool
+	s_path string 
+	s_word string
+)
+var h = hub{
+	broadcast:   make(chan string),
+	register:    make(chan *websocket.Conn),
+	unregister:  make(chan *websocket.Conn),
+	connections: make(map[*websocket.Conn]bool),
+}
+
+func (h *hub) run() {
+	for {
+		select {
+		case c := <-h.register:
+			h.connections[c] = true
+		case c := <-h.unregister:
+			delete(h.connections, c)
+		case m := <-h.broadcast:
+			for c := range h.connections {
+				_,err := c.Write([]byte(m))
+				if(err!=nil){
+					delete(h.connections,c)
+				}
+			}
+		}
+	}
+}
+
+func watch() {
+	update,er := tail.TailFile(s_path,tail.Config{
+	Follow:true,
+	ReOpen:true})//用tail对文件进行追踪
+	if er!=nil{
+		log.Fatal(er)
+		return 
+	}
+	for line:= range update.Lines{
+		if strings.Contains(line.Text,s_word){//如果一行中包含关键字，则将该行输出到客户端
+			h.broadcast <- line.Text
+		}
+	}
+}
 func monitor(ws *websocket.Conn,tail *tail.Tail,ti *time.Time){
 	for{
 		time.Sleep(gap*time.Second)//每次sleep了gap秒之后，检查websocket是否断开，是否等待文件更新过久
@@ -25,54 +85,121 @@ func monitor(ws *websocket.Conn,tail *tail.Tail,ti *time.Time){
 			tail.Cleanup()
 			return
 		}
-		fmt.Println("watch now")
+		//fmt.Println("watch now")
 	}
 }
 
 func echoHandler(ws *websocket.Conn) {
 	fmt.Println("one in")
-    msg := make([]byte, 512)
-    n, err := ws.Read(msg)//将websocket收到的消息读到msg中
-    if err != nil {
-        log.Println(err)
-		return 
-    }
-    fmt.Printf("Receive: %s,len=%d\n", msg[:n],n)//在命令行打印收到的消息和长度
-	var p int
-	for i:=2;i<n;i++{
-		if msg[i]==' '	{
-			p = i  //找到空格的位置
-			break
+	h.register <- ws
+	if set==false{
+		msg := make([]byte, 512)
+		n, err := ws.Read(msg)//将websocket收到的消息读到msg中
+		if err != nil {
+			log.Println(err)
+			return 
 		}
-	}
-	path:= string(msg[:p])//空格前的部分是文件名
-	word:= string(msg[p+1:n])//空格后的部分是关键字
-	update,er := tail.TailFile(path,tail.Config{
+		fmt.Printf("Receive: %s,len=%d\n", msg[:n],n)//在命令行打印收到的消息和长度
+		var p int
+		for i:=2;i<n;i++{
+			if msg[i]==' '	{
+				p = i  //找到空格的位置
+				break
+			}
+		}
+		path := string(msg[:p])
+		word := string(msg[p+1:n])
+		update,er := tail.TailFile(path,tail.Config{
 		Follow:true,
 		ReOpen:true})//用tail对文件进行追踪
-	if er!=nil{
-		log.Fatal(er)
-		return 
-	}
-	ti := time.Now()//用来记录目标文件最近一次被修改的时间
-	go monitor(ws,update,&ti)
-	for line:= range update.Lines{
-		ti = time.Now()//文件有更新，更新ti
-		if strings.Contains(line.Text,word){//如果一行中包含关键字，则将该行传回服务器
-			_,errr := ws.Write([]byte(line.Text))
-			if errr!=nil {
-				update.Stop()
-				update.Cleanup()
+		if er!=nil{
+			log.Fatal(er)
+			return 
+		}
+		ti := time.Now()//用来记录目标文件最近一次被修改的时间
+		go monitor(ws,update,&ti)
+		for line:= range update.Lines{
+			ti = time.Now()//文件有更新，更新ti
+			if strings.Contains(line.Text,word){//如果一行中包含关键字，则将该行输出到客户端
+				_,errr := ws.Write([]byte(line.Text))
+				if errr!=nil {
+					update.Stop()
+					update.Cleanup()
+					break
+				}
+			}
+		}
+	}else{
+		for{
+			time.Sleep(gap*time.Second)//每次sleep了gap秒之后，检查websocket是否断开，是否等待文件更新过久
+			_,err := ws.Write([]byte(greet))
+			if err!=nil {
 				break
 			}
 		}
 	}
 	fmt.Println("one out");
-	defer ws.Close()
+	defer func() {
+		h.unregister <- ws 
+		ws.Close()
+	}()
+}
+
+func hello(w http.ResponseWriter,r *http.Request){
+	err := r.ParseForm()
+	if(err!=nil){
+		fmt.Fprintf(w,err.Error())
+		return 
+	}
+	/*fmt.Println(r.Form)
+	fmt.Println("path",r.URL.Path)
+	fmt.Println("scheme",r.URL.Scheme)
+	fmt.Println(r.Form["url_long"])*/
+	limit,errr := strconv.Atoi(r.Form["limit"][0])
+	if(errr!=nil){
+		fmt.Fprintf(w,errr.Error())
+		return 
+	}
+	file := r.Form["file"][0]
+	update,er := tail.TailFile(file,tail.Config{
+	MustExist:true})
+	if(er!=nil){
+
+	}
+	var cnt int = 0
+	for line:= range update.Lines{
+		fmt.Fprintln(w,line.Text)
+		cnt++
+		if cnt>=limit{
+			break
+		}
+	}
+	/*fmt.Println("limit=%s,file=%s",limit,file)
+	for k,v := range r.Form{
+		fmt.Println("key:",k)
+		fmt.Println("val:",strings.Join(v,""))
+	}
+	fmt.Fprintf(w,"hello\n")
+	fmt.Fprintf(w,"world\n")*/
 }
 
 func main() {
-	
+	if len(os.Args)>1 {
+		set = true
+		s_path = os.Args[1];
+		if len(os.Args)>2{
+			s_word = os.Args[2]
+		} else {
+			s_word = ""
+		}
+	} else{
+		set = false
+	}
+	go h.run()
+	if set==true {
+		go watch()
+	}
+	http.HandleFunc("/tail",hello)
     http.Handle("/echo", websocket.Handler(echoHandler))//指定websocket连接的处理方式，echo是指定的匹配模式
     http.Handle("/", http.FileServer(http.Dir(".")))//对于其他请求，我们根据所在目录文件系统的内容进行处理
 
