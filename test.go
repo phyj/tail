@@ -71,7 +71,7 @@ func watch() {
 		return 
 	}
 	for line:= range update.Lines{
-		if strings.Contains(line.Text,s_word){//如果一行中包含关键字，则将该行输出到客户端
+		if strings.Contains(line.Text,s_word){//如果一行中包含关键字，则将该行输出到所有websocket连接
 			h.broadcast <- line.Text
 		}
 	}
@@ -131,7 +131,7 @@ func echoHandler(ws *websocket.Conn) {
 		}
 	}else{
 		for{
-			time.Sleep(gap*time.Second)//每次sleep了gap秒之后，检查websocket是否断开，是否等待文件更新过久
+			time.Sleep(gap*time.Second)//每次sleep了gap秒之后，检查websocket是否断开
 			_,err := ws.Write([]byte(greet))
 			if err!=nil {
 				break
@@ -155,16 +155,17 @@ func hello(w http.ResponseWriter,r *http.Request){
 	fmt.Println("path",r.URL.Path)
 	fmt.Println("scheme",r.URL.Scheme)
 	fmt.Println(r.Form["url_long"])*/
-	limit,errr := strconv.Atoi(r.Form["limit"][0])
+	limit,errr := strconv.Atoi(r.Form["limit"][0])//limit为输出的最大行数
 	if(errr!=nil){
 		fmt.Fprintf(w,errr.Error())
 		return 
 	}
-	file := r.Form["file"][0]
+	file := r.Form["file"][0]//file为要tail的文件的路径
 	update,er := tail.TailFile(file,tail.Config{
 	MustExist:true})
 	if(er!=nil){
-
+		fmt.Fprintf(w,er.Error())
+		return 
 	}
 	var cnt int = 0
 	for line:= range update.Lines{
@@ -195,7 +196,7 @@ func main() {
 	} else{
 		set = false
 	}
-	go h.run()
+	go h.run()//h维护所有websocket连接，用于广播
 	if set==true {
 		go watch()
 	}
