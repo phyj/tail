@@ -62,7 +62,7 @@ func (h *hub) run() {
 	}
 }
 
-func watch() {
+func watch() {//tail指定的文件，将文件中所有包含关键字的行广播到所有websocket连接
 	update,er := tail.TailFile(s_path,tail.Config{
 	Follow:true,
 	ReOpen:true})//用tail对文件进行追踪
@@ -70,6 +70,10 @@ func watch() {
 		log.Fatal(er)
 		return 
 	}
+	defer func() {
+		update.Stop()
+		update.Cleanup()
+	}()
 	for line:= range update.Lines{
 		if strings.Contains(line.Text,s_word){//如果一行中包含关键字，则将该行输出到所有websocket连接
 			h.broadcast <- line.Text
@@ -92,6 +96,11 @@ func monitor(ws *websocket.Conn,tail *tail.Tail,ti *time.Time){
 func echoHandler(ws *websocket.Conn) {
 	fmt.Println("one in")
 	h.register <- ws
+	defer func() {
+		fmt.Println("one out");
+		h.unregister <- ws 
+		ws.Close()
+	}()
 	if set==false{
 		msg := make([]byte, 512)
 		n, err := ws.Read(msg)//将websocket收到的消息读到msg中
@@ -116,6 +125,10 @@ func echoHandler(ws *websocket.Conn) {
 			log.Fatal(er)
 			return 
 		}
+		defer func() {
+			update.Stop()
+			update.Cleanup()
+		}()
 		ti := time.Now()//用来记录目标文件最近一次被修改的时间
 		go monitor(ws,update,&ti)
 		for line:= range update.Lines{
@@ -138,11 +151,6 @@ func echoHandler(ws *websocket.Conn) {
 			}
 		}
 	}
-	fmt.Println("one out");
-	defer func() {
-		h.unregister <- ws 
-		ws.Close()
-	}()
 }
 
 func hello(w http.ResponseWriter,r *http.Request){
@@ -167,6 +175,10 @@ func hello(w http.ResponseWriter,r *http.Request){
 		fmt.Fprintf(w,er.Error())
 		return 
 	}
+	defer func() {
+		update.Stop()
+		update.Cleanup()
+	}()
 	var cnt int = 0
 	for line:= range update.Lines{
 		fmt.Fprintln(w,line.Text)
@@ -187,9 +199,9 @@ func hello(w http.ResponseWriter,r *http.Request){
 func main() {
 	if len(os.Args)>1 {
 		set = true
-		s_path = os.Args[1];
+		s_path = os.Args[1];//第一个参数存的是路径
 		if len(os.Args)>2{
-			s_word = os.Args[2]
+			s_word = os.Args[2]//第二个参数存的是关键字
 		} else {
 			s_word = ""
 		}
