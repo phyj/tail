@@ -7,16 +7,14 @@ import (
     "net/http"
 	"strings"
 	"github.com/hpcloud/tail"
-	"time"
 	"os"
 	"strconv"
 )
 
-const (
+/*const (
 	gap = 2
 	timeout = 6000
-	greet = ""
-)
+)*/
 
 type hub struct {
 	// Registered connections.
@@ -71,6 +69,7 @@ func watch() {//tail指定的文件，将文件中所有包含关键字的行广
 		return 
 	}
 	defer func() {
+		fmt.Println("tail end")
 		update.Stop()
 		update.Cleanup()
 	}()
@@ -80,16 +79,12 @@ func watch() {//tail指定的文件，将文件中所有包含关键字的行广
 		}
 	}
 }
-func monitor(ws *websocket.Conn,tail *tail.Tail,ti *time.Time){
-	for{
-		time.Sleep(gap*time.Second)//每次sleep了gap秒之后，检查websocket是否断开，是否等待文件更新过久
-		_,err := ws.Write([]byte(greet))
-		if err!=nil || time.Now().Sub(*ti)>timeout*time.Second {
-			tail.Stop()
-			tail.Cleanup()
-			return
-		}
-		//fmt.Println("watch now")
+func monitor(ws *websocket.Conn,tail *tail.Tail){
+	msg := make([]byte, 512)
+	_,err := ws.Read(msg)
+	if err!=nil{
+		tail.Stop()
+		tail.Cleanup()
 	}
 }
 
@@ -126,29 +121,27 @@ func echoHandler(ws *websocket.Conn) {
 			return 
 		}
 		defer func() {
+			fmt.Println("tail end")
 			update.Stop()
 			update.Cleanup()
 		}()
-		ti := time.Now()//用来记录目标文件最近一次被修改的时间
-		go monitor(ws,update,&ti)
+		//ti := time.Now()//用来记录目标文件最近一次被修改的时间
+		go monitor(ws,update)
 		for line:= range update.Lines{
-			ti = time.Now()//文件有更新，更新ti
+			//ti = time.Now()//文件有更新，更新ti
 			if strings.Contains(line.Text,word){//如果一行中包含关键字，则将该行输出到客户端
 				_,errr := ws.Write([]byte(line.Text))
 				if errr!=nil {
-					update.Stop()
-					update.Cleanup()
+					log.Println(errr)
 					break
 				}
 			}
 		}
 	}else{
-		for{
-			time.Sleep(gap*time.Second)//每次sleep了gap秒之后，检查websocket是否断开
-			_,err := ws.Write([]byte(greet))
-			if err!=nil {
-				break
-			}
+		msg := make([]byte, 512)
+		_,err := ws.Read(msg)
+		if err!=nil{
+			log.Println(err)
 		}
 	}
 }
@@ -176,6 +169,7 @@ func hello(w http.ResponseWriter,r *http.Request){
 		return 
 	}
 	defer func() {
+		fmt.Println("tail end")
 		update.Stop()
 		update.Cleanup()
 	}()
