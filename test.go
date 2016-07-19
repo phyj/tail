@@ -11,10 +11,9 @@ import (
 	"strconv"
 )
 
-/*const (
-	gap = 2
-	timeout = 6000
-)*/
+const (
+	buffer_length = 1000
+)
 
 type hub struct {
 	// Registered connections.
@@ -80,11 +79,14 @@ func watch() {//tail指定的文件，将文件中所有包含关键字的行广
 	}
 }
 func monitor(ws *websocket.Conn,tail *tail.Tail){
-	msg := make([]byte, 512)
-	_,err := ws.Read(msg)
-	if err!=nil{
-		tail.Stop()
-		tail.Cleanup()
+	msg := make([]byte, buffer_length)
+	for {
+		_,err := ws.Read(msg)
+		if err!=nil&&err.Error()=="EOF"{
+			tail.Stop()
+			tail.Cleanup()
+			return 
+		}
 	}
 }
 
@@ -97,7 +99,7 @@ func echoHandler(ws *websocket.Conn) {
 		ws.Close()
 	}()
 	if set==false{
-		msg := make([]byte, 512)
+		msg := make([]byte,buffer_length)
 		n, err := ws.Read(msg)//将websocket收到的消息读到msg中
 		if err != nil {
 			log.Println(err)
@@ -138,10 +140,12 @@ func echoHandler(ws *websocket.Conn) {
 			}
 		}
 	}else{
-		msg := make([]byte, 512)
-		_,err := ws.Read(msg)
-		if err!=nil{
-			log.Println(err)
+		msg := make([]byte, buffer_length)
+		for{
+			_,err := ws.Read(msg)
+			if err!=nil&&err.Error()=="EOF"{
+				break
+			}
 		}
 	}
 }
