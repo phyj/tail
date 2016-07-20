@@ -1,0 +1,21 @@
+<html>
+<head>
+<script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){
+  $("#sendBtn").click(function(){
+  var data = $('#name').val();
+  htmlobj=$.ajax({url:"/tail?"+data,async:false});
+  $("#myDiv").html(htmlobj.responseText.replace(/\r\n/g,"<br/>").replace(/\r\n/g,"<br/>"));
+	
+  });
+});
+</script>
+</head>
+<body>
+
+<input id="name" type="text"/>
+<input type="button" id="sendBtn" value="send"/>
+<div id="myDiv"><h2>通过 AJAX 改变文本</h2></div>
+</body>
+</html>
