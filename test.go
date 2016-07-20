@@ -151,6 +151,7 @@ func echoHandler(ws *websocket.Conn) {
 }
 
 func hello(w http.ResponseWriter,r *http.Request){
+	fmt.Println("a http request")
 	err := r.ParseForm()
 	if(err!=nil){
 		fmt.Fprintf(w,err.Error())
@@ -166,6 +167,8 @@ func hello(w http.ResponseWriter,r *http.Request){
 		return 
 	}
 	file := r.Form["file"][0]//file为要tail的文件的路径
+	word := r.Form["word"][0]
+	out := make([]string,limit)
 	update,er := tail.TailFile(file,tail.Config{
 	MustExist:true})
 	if(er!=nil){
@@ -178,11 +181,25 @@ func hello(w http.ResponseWriter,r *http.Request){
 		update.Cleanup()
 	}()
 	var cnt int = 0
+	var p int = 0
 	for line:= range update.Lines{
-		fmt.Fprintln(w,line.Text)
-		cnt++
-		if cnt>=limit{
-			break
+		if	strings.Contains(line.Text,word){
+			//fmt.Fprintln(w,line.Text)
+			cnt++
+			out[p] = line.Text
+			p++
+			if p==limit{
+				p = 0
+			}
+		}
+	}
+	if cnt>=limit {
+		for i:=0;i<limit;i++{
+			fmt.Fprintln(w,out[(p+i)%limit])
+		}
+	}else{
+		for i:=0;i<p;i++{
+			fmt.Fprintln(w,out[i])
 		}
 	}
 	/*fmt.Println("limit=%s,file=%s",limit,file)
