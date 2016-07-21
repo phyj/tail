@@ -2,13 +2,29 @@
 <head>
 <script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
 <script type="text/javascript">
-$(document).ready(function(){
-  $("#sendBtn").click(function(){
-  var data = $('#name').val();
-  htmlobj=$.ajax({url:"/tail?"+data,async:false});
-  $("#myDiv").html(htmlobj.responseText.replace(/\r\n/g,"<br/>").replace(/\r\n/g,"<br/>"));
-	
-  });
+$(document).ready(function()
+{
+	$("#sendBtn").click(function()
+	{
+		var xmlhttp;
+		if (window.XMLHttpRequest)
+		{// code for IE7+, Firefox, Chrome, Opera, Safari
+			xmlhttp=new XMLHttpRequest();
+		}
+		else
+		{// code for IE6, IE5
+			xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+		}
+		xmlhttp.onreadystatechange=function()
+		{
+			if (xmlhttp.readyState==4 && xmlhttp.status==200)
+			{
+				$("#myDiv").html(xmlhttp.responseText.replace(/\r\n/g,"<br/>").replace(/\r\n/g,"<br/>"));
+			}
+		}
+		xmlhttp.open("GET","tail?"+$('#name').val(),true);
+		xmlhttp.send();
+	});
 });
 </script>
 </head>
