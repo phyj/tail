@@ -9,11 +9,30 @@ function send()
 	if(running==true)
 		return 
 	running = true;
-	var obj = eval("("+$.ajax({url:"tail?"+$('#name').val(),async:false}).responseText+")");
-	var out = ""
-	for(i=0;i<obj.lines.length;i++)
-		out+=obj.lines[i]+"<br/>";
-	$("#myDiv").html(out);
+	alert("in");
+	$.ajax({url:"tail?"+$('#name').val(),async:true,dataType: "json",
+		complete: function(xmlhttp, textStatus){//complete不管是success还是fail都会执行
+			if(textStatus!="success")
+				return ;
+			var obj = eval("("+xmlhttp.responseText+")");//obj是根据返回的json进行解包得到的对象
+			if(obj.hasOwnProperty('lines'))//检查是否只有lines这么一个属性
+			{	
+				var cnt = 0;
+				for (x in obj)
+					cnt++;
+				if(cnt!=1)
+					return;
+			}
+			else
+			{
+				return ;
+			}
+			var out = "";
+			for(i=0;i<obj.lines.length;i++)
+				out+=obj.lines[i]+"<br/>";
+			$("#myDiv").html(out);
+        }
+	});
 	running = false;
 }
 $(document).ready(function()
