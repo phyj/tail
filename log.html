@@ -2,32 +2,36 @@
 <head>
 <script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
 <script type="text/javascript">
+function send()
+{
+	var xmlhttp;
+	if (window.XMLHttpRequest)
+	{// code for IE7+, Firefox, Chrome, Opera, Safari
+		xmlhttp=new XMLHttpRequest();
+	}
+	else
+	{// code for IE6, IE5
+		xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
+	}
+	xmlhttp.onreadystatechange=function()
+	{
+		if (xmlhttp.readyState==4 && xmlhttp.status==200)
+		{
+			var obj = eval("("+xmlhttp.responseText+")");
+			var out = ""
+			for(i=0;i<obj.lines.length;i++)
+				out+=obj.lines[i]+"<br/>";
+			$("#myDiv").html(out);
+		}
+	}
+	xmlhttp.open("GET","tail?"+$('#name').val(),true);
+	xmlhttp.send();
+}
 $(document).ready(function()
 {
 	$("#sendBtn").click(function()
 	{
-		var xmlhttp;
-		if (window.XMLHttpRequest)
-		{// code for IE7+, Firefox, Chrome, Opera, Safari
-			xmlhttp=new XMLHttpRequest();
-		}
-		else
-		{// code for IE6, IE5
-			xmlhttp=new ActiveXObject("Microsoft.XMLHTTP");
-		}
-		xmlhttp.onreadystatechange=function()
-		{
-			if (xmlhttp.readyState==4 && xmlhttp.status==200)
-			{
-				var obj = eval("("+xmlhttp.responseText+")");
-				var out = ""
-				for(i=0;i<obj.lines.length;i++)
-					out+=obj.lines[i]+"<br/>";
-				$("#myDiv").html(out);
-			}
-		}
-		xmlhttp.open("GET","tail?"+$('#name').val(),true);
-		xmlhttp.send();
+		setInterval("send()",1000);
 	});
 });
 </script>
