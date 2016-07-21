@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
     "golang.org/x/net/websocket"
     "fmt"
     "log"
@@ -12,7 +13,7 @@ import (
 )
 
 const (
-	buffer_length = 1000
+	buffer_length = 512
 )
 
 type hub struct {
@@ -29,11 +30,12 @@ type hub struct {
 	unregister chan *websocket.Conn
 }
 
-var (
+var dir string
+/*var (
 	set bool
 	s_path string 
 	s_word string
-)
+)*/
 var h = hub{
 	broadcast:   make(chan string),
 	register:    make(chan *websocket.Conn),
@@ -59,7 +61,7 @@ func (h *hub) run() {
 	}
 }
 
-func watch() {//tail指定的文件，将文件中所有包含关键字的行广播到所有websocket连接
+/*func watch() {//tail指定的文件，将文件中所有包含关键字的行广播到所有websocket连接
 	update,er := tail.TailFile(s_path,tail.Config{
 	Follow:true,
 	ReOpen:true})//用tail对文件进行追踪
@@ -77,7 +79,7 @@ func watch() {//tail指定的文件，将文件中所有包含关键字的行广
 			h.broadcast <- line.Text
 		}
 	}
-}
+}*/
 func monitor(ws *websocket.Conn,tail *tail.Tail){
 	msg := make([]byte, buffer_length)
 	for {
@@ -98,52 +100,42 @@ func echoHandler(ws *websocket.Conn) {
 		h.unregister <- ws 
 		ws.Close()
 	}()
-	if set==false{
-		msg := make([]byte,buffer_length)
-		n, err := ws.Read(msg)//将websocket收到的消息读到msg中
-		if err != nil {
-			log.Println(err)
-			return 
+	msg := make([]byte,buffer_length)
+	n, err := ws.Read(msg)//将websocket收到的消息读到msg中
+	if err != nil {
+		log.Println(err)
+		return 
+	}
+	fmt.Printf("Receive: %s,len=%d\n", msg[:n],n)//在命令行打印收到的消息和长度
+	var p int
+	for i:=2;i<n;i++{
+		if msg[i]==' '	{
+			p = i  //找到空格的位置
+			break
 		}
-		fmt.Printf("Receive: %s,len=%d\n", msg[:n],n)//在命令行打印收到的消息和长度
-		var p int
-		for i:=2;i<n;i++{
-			if msg[i]==' '	{
-				p = i  //找到空格的位置
-				break
-			}
-		}
-		path := string(msg[:p])
-		word := string(msg[p+1:n])
-		update,er := tail.TailFile(path,tail.Config{
-		Follow:true,
-		ReOpen:true})//用tail对文件进行追踪
-		if er!=nil{
-			log.Fatal(er)
-			return 
-		}
-		defer func() {
-			fmt.Println("tail end")
-			update.Stop()
-			update.Cleanup()
-		}()
+	}
+	path := dir+string(msg[:p])
+	word := string(msg[p+1:n])
+	update,er := tail.TailFile(path,tail.Config{
+	Follow:true,
+	ReOpen:true})//用tail对文件进行追踪
+	if er!=nil{
+		log.Fatal(er)
+		return 
+	}
+	defer func() {
+		fmt.Println("tail end")
+		update.Stop()
+		update.Cleanup()
+	}()
 		//ti := time.Now()//用来记录目标文件最近一次被修改的时间
-		go monitor(ws,update)
-		for line:= range update.Lines{
-			//ti = time.Now()//文件有更新，更新ti
-			if strings.Contains(line.Text,word){//如果一行中包含关键字，则将该行输出到客户端
-				_,errr := ws.Write([]byte(line.Text))
-				if errr!=nil {
-					log.Println(errr)
-					break
-				}
-			}
-		}
-	}else{
-		msg := make([]byte, buffer_length)
-		for{
-			_,err := ws.Read(msg)
-			if err!=nil&&err.Error()=="EOF"{
+	go monitor(ws,update)
+	for line:= range update.Lines{
+		//ti = time.Now()//文件有更新，更新ti
+		if strings.Contains(line.Text,word){//如果一行中包含关键字，则将该行输出到客户端
+			_,errr := ws.Write([]byte(line.Text))
+			if errr!=nil {
+				log.Println(errr)
 				break
 			}
 		}
@@ -166,9 +158,10 @@ func hello(w http.ResponseWriter,r *http.Request){
 		fmt.Fprintf(w,errr.Error())
 		return 
 	}
-	file := r.Form["file"][0]//file为要tail的文件的路径
+	file := dir+r.Form["file"][0]//file为要tail的文件的路径
 	word := r.Form["word"][0]
 	out := make([]string,limit)
+	//fmt.Println("file=%s",file)
 	update,er := tail.TailFile(file,tail.Config{
 	MustExist:true})
 	if(er!=nil){
@@ -194,12 +187,22 @@ func hello(w http.ResponseWriter,r *http.Request){
 		}
 	}
 	if cnt>=limit {
+		o := make([]string,limit)
 		for i:=0;i<limit;i++{
-			fmt.Fprintln(w,out[(p+i)%limit])
+			o[i] = out[(p+i)%limit]
+		}
+		js,ee := json.Marshal(o)
+		if ee==nil{
+			fmt.Fprintf(w,"{lines:"+string(js)+"}")
 		}
 	}else{
+		o := make([]string,cnt)
 		for i:=0;i<p;i++{
-			fmt.Fprintln(w,out[i])
+			o[i] = out[i]
+		}
+		js,ee := json.Marshal(o)
+		if ee==nil{
+			fmt.Fprintf(w,"{\"lines\":"+string(js)+"}")
 		}
 	}
 	/*fmt.Println("limit=%s,file=%s",limit,file)
@@ -213,20 +216,9 @@ func hello(w http.ResponseWriter,r *http.Request){
 
 func main() {
 	if len(os.Args)>1 {
-		set = true
-		s_path = os.Args[1];//第一个参数存的是路径
-		if len(os.Args)>2{
-			s_word = os.Args[2]//第二个参数存的是关键字
-		} else {
-			s_word = ""
-		}
-	} else{
-		set = false
+		dir = os.Args[1]
 	}
 	go h.run()//h维护所有websocket连接，用于广播
-	if set==true {
-		go watch()
-	}
 	http.HandleFunc("/tail",hello)
     http.Handle("/echo", websocket.Handler(echoHandler))//指定websocket连接的处理方式，echo是指定的匹配模式
     http.Handle("/", http.FileServer(http.Dir(".")))//对于其他请求，我们根据所在目录文件系统的内容进行处理

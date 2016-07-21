@@ -19,7 +19,11 @@ $(document).ready(function()
 		{
 			if (xmlhttp.readyState==4 && xmlhttp.status==200)
 			{
-				$("#myDiv").html(xmlhttp.responseText.replace(/\r\n/g,"<br/>").replace(/\r\n/g,"<br/>"));
+				var obj = eval("("+xmlhttp.responseText+")");
+				var out = ""
+				for(i=0;i<obj.lines.length;i++)
+					out+=obj.lines[i]+"<br/>";
+				$("#myDiv").html(out);
 			}
 		}
 		xmlhttp.open("GET","tail?"+$('#name').val(),true);
