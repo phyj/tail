@@ -11,11 +11,11 @@ import (
 
 var	http_dir string
 
-func http_set_dir(dir string){//设置所在目录
+func Http_set_dir(dir string){//设置所在目录
 	http_dir = dir
 }
 
-func hello(w http.ResponseWriter,req *http.Request){
+func Http_tail(w http.ResponseWriter,req *http.Request){
 	log.Println("a http request")
 	err := req.ParseForm()//对query_string进行解包,query_string的格式为file=x&limit=y&word=z
 	if(err!=nil){

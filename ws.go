@@ -12,7 +12,7 @@ const (
 
 var ws_dir string
 
-func ws_set_dir(dir string){
+func Ws_set_dir(dir string){
 	ws_dir = dir
 }
 
@@ -28,7 +28,7 @@ func monitor(ws *websocket.Conn,tail *tail.Tail){//监控ws是否断开，若断
 	}
 }
 
-func echoHandler(ws *websocket.Conn) {
+func Ws_tailHandler(ws *websocket.Conn) {
 	defer ws.Close()
 	msg := make([]byte,buffer_length)
 	msg_length, err := ws.Read(msg)//将websocket收到的消息读到msg中
