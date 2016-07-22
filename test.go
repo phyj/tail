@@ -154,6 +154,9 @@ func hello(w http.ResponseWriter,r *http.Request){
 	fmt.Println("scheme",r.URL.Scheme)
 	fmt.Println(r.Form["url_long"])*/
 	limit,errr := strconv.Atoi(r.Form["limit"][0])//limit为输出的最大行数
+	if(limit<=0){
+		return 
+	}
 	if(errr!=nil){
 		fmt.Fprintf(w,errr.Error())
 		return 
@@ -177,7 +180,6 @@ func hello(w http.ResponseWriter,r *http.Request){
 	var p int = 0
 	for line:= range update.Lines{
 		if	strings.Contains(line.Text,word){
-			//fmt.Fprintln(w,line.Text)
 			cnt++
 			out[p] = line.Text
 			p++
@@ -189,11 +191,15 @@ func hello(w http.ResponseWriter,r *http.Request){
 	if cnt>=limit {
 		o := make([]string,limit)
 		for i:=0;i<limit;i++{
-			o[i] = out[(p+i)%limit]
+			o[i] = out[p]
+			p++
+			if p==limit{
+				p = 0
+			}
 		}
 		js,ee := json.Marshal(o)
 		if ee==nil{
-			fmt.Fprintf(w,"{lines:"+string(js)+"}")
+			fmt.Fprintf(w,"{\"lines\":"+string(js)+"}")
 		}
 	}else{
 		o := make([]string,cnt)
@@ -205,6 +211,7 @@ func hello(w http.ResponseWriter,r *http.Request){
 			fmt.Fprintf(w,"{\"lines\":"+string(js)+"}")
 		}
 	}
+	//time.Sleep(time.Second)
 	/*fmt.Println("limit=%s,file=%s",limit,file)
 	for k,v := range r.Form{
 		fmt.Println("key:",k)
