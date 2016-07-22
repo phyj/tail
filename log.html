@@ -3,17 +3,22 @@
 <script type="text/javascript" src="http://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
 <script type="text/javascript">
 
+var start = false;
 var running = false;
+var id_of_setinterval;
+
 function send()
 {
 	if(running==true)
 		return 
 	running = true;
-	alert("in");
 	$.ajax({url:"tail?"+$('#name').val(),async:true,dataType: "json",
 		complete: function(xmlhttp, textStatus){//complete不管是success还是fail都会执行
 			if(textStatus!="success")
+			{
+				running = false;
 				return ;
+			}
 			var obj = eval("("+xmlhttp.responseText+")");//obj是根据返回的json进行解包得到的对象
 			if(obj.hasOwnProperty('lines'))//检查是否只有lines这么一个属性
 			{	
@@ -21,25 +26,39 @@ function send()
 				for (x in obj)
 					cnt++;
 				if(cnt!=1)
+				{
+					running = false;
 					return;
+				}
 			}
 			else
 			{
+				running = false;
 				return ;
 			}
 			var out = "";
 			for(i=0;i<obj.lines.length;i++)
 				out+=obj.lines[i]+"<br/>";
 			$("#myDiv").html(out);
+			running = false;
         }
 	});
-	running = false;
 }
 $(document).ready(function()
 {
-	$("#sendBtn").click(function()
+	$("#startBtn").click(function()
 	{
-		setInterval("send()",1000);
+		if(start==true)
+			return ;
+		start = true;
+		id_of_setinterval = setInterval("send()",1000);
+	});
+	$("#stopBtn").click(function()
+	{
+		if(start==false)
+			return ;
+		start = false;running = false;
+		window.clearInterval(id_of_setinterval);
 	});
 });
 </script>
@@ -47,7 +66,8 @@ $(document).ready(function()
 <body>
 
 <input id="name" type="text"/>
-<input type="button" id="sendBtn" value="send"/>
+<input type="button" id="startBtn" value="start"/>
+<input type="button" id="stopBtn" value="stop"/>
 <div id="myDiv"><h2>通过 AJAX 改变文本</h2></div>
 </body>
 </html>
