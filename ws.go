@@ -1,4 +1,4 @@
-package main
+package web_tail
 
 import (
     "golang.org/x/net/websocket"

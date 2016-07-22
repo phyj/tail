@@ -1,5 +1,4 @@
-package main
-
+package web_tail
 import (
 	"encoding/json"
     "log"
