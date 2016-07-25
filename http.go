@@ -23,11 +23,12 @@ func Http_tail(w http.ResponseWriter,req *http.Request){
 		return 
 	}
 	limit,errr := strconv.Atoi(req.Form["limit"][0])//limit为输出的最大行数
-	if(limit<=0){
-		return 
-	}
 	if(errr!=nil){
 		log.Println(errr.Error())
+		return 
+	}
+	if(limit<=0){
+		log.Println("limit is not positive")
 		return 
 	}
 	file_path := http_dir+req.Form["file"][0]//file为要tail的文件的路径
